@@ -7,17 +7,20 @@ import java.util.Map;
 
 public class _Collector {
 
-  private static final Map<String, List<Object>> oracle = new HashMap<String, List<Object>>();
+  private static final Map<String, Map<String, List<Object>>> oracle = new HashMap<String, Map<String, List<Object>>>();
 
-  public static void addOutput(String method, Object output) {
-    System.out.println(method + " : " + output);
-    if (!oracle.containsKey(method)) {
-      oracle.put(method, new ArrayList<>());
+  public static void addOutput(String synthMethod, String testMethod, Object output) {
+    System.out.println(testMethod + " : " + output);
+    if (!oracle.containsKey(synthMethod)) {
+      oracle.put(synthMethod, new HashMap<String, List<Object>>());
     }
-    oracle.get(method).add(output);
+    if (!oracle.get(synthMethod).containsKey(testMethod)) {
+      oracle.get(synthMethod).put(testMethod, new ArrayList<Object>());
+    }
+    oracle.get(synthMethod).get(testMethod).add(output);
   }
 
-  public static Map<String, List<Object>> getAllCollectedValue() {
+  public static Map<String, Map<String, List<Object>>> getAllCollectedValue() {
     return oracle;
   }
 

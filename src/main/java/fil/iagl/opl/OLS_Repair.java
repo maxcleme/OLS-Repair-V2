@@ -1,11 +1,13 @@
 package fil.iagl.opl;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Optional;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.maven.shared.invoker.MavenInvocationException;
 
 import com.sanityinc.jargs.CmdLineParser;
 import com.sanityinc.jargs.CmdLineParser.Option;
@@ -33,6 +35,21 @@ public class OLS_Repair {
     Config.INSTANCE.setSolverPath(Z3_PATH);
     SolverFactory.setSolver(Config.INSTANCE.getSolver(), Config.INSTANCE.getSolverPath());
 
+    if (!OVERRIDE) {
+      String workingDirPath = PROJECT_PATH + "_synth";
+      File workingDir = new File(workingDirPath);
+      File projectDir = new File(PROJECT_PATH);
+      try {
+        if (workingDir.exists()) {
+          FileUtils.forceDelete(workingDir);
+        }
+        FileUtils.copyDirectory(projectDir, workingDir);
+        PROJECT_PATH = workingDirPath;
+      } catch (IOException e) {
+        throw new RuntimeException("Error occured when creating temporary directory", e);
+      }
+    }
+
     File projectDir = new File(PROJECT_PATH);
     File spoonedDir = new File("spooned");
 
@@ -48,7 +65,9 @@ public class OLS_Repair {
 
     String[] spoonArgsModeling = {
       "-i",
-      PROJECT_PATH,
+      PROJECT_PATH + "/src/main/java",
+      "-o",
+      PROJECT_PATH + "/src/main/java",
       "-p",
       "fil.iagl.opl.model.ConstructModel",
       "-x"
@@ -60,8 +79,11 @@ public class OLS_Repair {
       }
       FileUtils.copyDirectory(projectDir, spoonedDir);
       Launcher.main(spoonArgsCollecting);
-      Utils.runMavenGoal("spooned", MAVEN_HOME_PATH, Arrays.asList("clean", "test"), Optional.empty());
-
+      try {
+        Utils.runMavenGoal("spooned", OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("clean", "test"), Optional.empty());
+      } catch (MavenInvocationException e) {
+        throw new RuntimeException("Error occured during dynamic output collect.", e);
+      }
       Launcher.main(spoonArgsModeling);
     } catch (Exception e) {
       throw new RuntimeException(e);

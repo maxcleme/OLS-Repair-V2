@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import org.junit.runner.RunWith;
 
 import _instrumenting._CollectorRunner;
+import fil.iagl.opl.utils.Utils;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtBlock;
 import spoon.reflect.code.CtCatch;
@@ -25,29 +26,29 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
   }
 
   @Override
-  public void process(CtMethod<?> method) {
+  public void process(CtMethod<?> testMethod) {
 
-    if (method.getDocComment() == null) {
+    if (testMethod.getDocComment() == null) {
       return;
     }
 
     Pattern p = Pattern.compile("@link((.*)#(.*)\\((.*?)\\))");
-    Matcher m = p.matcher(method.getDocComment().trim().replaceAll(" ", ""));
+    Matcher m = p.matcher(testMethod.getDocComment().trim().replaceAll(" ", ""));
     if (!m.matches()) {
       return;
     }
 
-    CtClass<?> parentClass = method.getParent(CtClass.class);
+    CtClass<?> parentTestClass = testMethod.getParent(CtClass.class);
 
-    if (parentClass.getAnnotation(RunWith.class) == null)
-      getFactory().Annotation().annotate(parentClass, RunWith.class, "value", _CollectorRunner.class);
+    if (parentTestClass.getAnnotation(RunWith.class) == null)
+      getFactory().Annotation().annotate(parentTestClass, RunWith.class, "value", _CollectorRunner.class);
 
-    List<CtInvocation<?>> invocations = method.getElements(new TypeFilter<>(CtInvocation.class));
+    List<CtInvocation<?>> invocations = testMethod.getElements(new TypeFilter<>(CtInvocation.class));
     for (CtInvocation<?> invocation : invocations) {
       if (invocation.getTarget().getType().getQualifiedName().equals("org.junit.Assert")) {
         CtTry ctTry = getFactory().Core().createTry();
         CtBlock<?> ctTryBlock = getFactory().Core().createBlock();
-        ctTry.setParent(method);
+        ctTry.setParent(testMethod);
         ctTry.setBody(ctTryBlock);
 
         CtBlock<?> ctCatchBlock = getFactory().Core().createBlock();
@@ -59,12 +60,17 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
         invocation.replace(ctTry);
 
         ctTryBlock.addStatement(getFactory().Code().createCodeSnippetStatement(
-          "_instrumenting._Collector.addOutput(\"" + parentClass.getQualifiedName() + "#" + method.getSimpleName() + "\"," +
+          "_instrumenting._Collector.addOutput(\"" + m.group(1) + "\",\"" + Utils.getFormalName(testMethod) + "\"," +
             invocation.getArguments().get(0)
             + ")"));
         ctTryBlock.addStatement(assertion);
       }
     }
+
+  }
+
+  @Override
+  public void processingDone() {
 
   }
 

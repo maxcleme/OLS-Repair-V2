@@ -32,7 +32,7 @@ import xxl.java.library.JavaLibrary;
 
 public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
 
-  private Map<String, List<Object>> oracle;
+  private Map<String, Map<String, List<Object>>> collectedValues;
 
   @Override
   public void init() {
@@ -40,7 +40,7 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
     try {
       FileInputStream fin = new FileInputStream("spooned/collect");
       ObjectInputStream ois = new ObjectInputStream(fin);
-      this.oracle = (Map<String, List<Object>>) ois.readObject();
+      this.collectedValues = (Map<String, Map<String, List<Object>>>) ois.readObject();
       ois.close();
     } catch (IOException | ClassNotFoundException e) {
       throw new RuntimeException("Error occured when reading collected value.", e);
@@ -48,35 +48,20 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
   }
 
   @Override
-  public boolean isToBeProcessed(CtMethod<?> candidate) {
-    return candidate.getAnnotation(org.junit.Test.class) != null && candidate.getParent(CtClass.class) != null;
-  }
-
-  @Override
   public void process(CtMethod<?> method) {
-    Pattern p = Pattern.compile("@link((.*)#(.*)\\((.*?)\\))");
-    Matcher m = p.matcher(method.getDocComment().trim().replaceAll(" ", ""));
-    if (m.matches()) {
-      String testedMethodSignature = m.group(1);
-      String testMethodName = Utils.getFormalName(method);
-      Model.addTestedMethod(testedMethodSignature);
-      Model.addTestMethod(testedMethodSignature, testMethodName);
-      Model.addOutput(testedMethodSignature, testMethodName, oracle.get(testMethodName));
-    } else {
-      System.out.println("Missing @link");
-    }
+
   }
 
   @Override
   public void processingDone() {
-    for (String methodToBeSynth : Model.getInstance().getModel().keySet()) {
+    for (String methodToBeSynth : collectedValues.keySet()) {
 
       System.out.println("Trying to synth : " + methodToBeSynth);
 
       List<String> tests = new ArrayList<String>();
       Map<String, Object[]> oracle = new HashMap<String, Object[]>();
 
-      for (Entry<String, List<Object>> entry : Model.getInstance().getModel().get(methodToBeSynth).entrySet()) {
+      for (Entry<String, List<Object>> entry : this.collectedValues.get(methodToBeSynth).entrySet()) {
         tests.add(entry.getKey());
         oracle.put(entry.getKey(), entry.getValue().toArray(new Object[entry.getValue().size()]));
       }
@@ -96,19 +81,29 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
         File sourceDir = new File(OLS_Repair.PROJECT_PATH + "/src/main/java");
         File[] files = {sourceDir};
 
+        String classpath;
         try {
-          String classpath = Utils.getDynamicClasspath(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH);
+          classpath = Utils.getDynamicClasspath(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH);
           classpath += File.pathSeparatorChar + OLS_Repair.PROJECT_PATH + File.separatorChar + "target" + File.separatorChar + "classes";
           classpath += File.pathSeparatorChar + OLS_Repair.PROJECT_PATH + File.separatorChar + "target" + File.separatorChar + "test-classes";
-
-          // mvn test -DskipTests on instrumented project to be sure /target is fill
-          Utils.runMavenGoal(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("test", "-DskipTests"), Optional.empty());
-
-          Synthesizer synthesizer = new SynthesizerImpl(files, location, JavaLibrary.classpathFrom(classpath), oracle, tests.toArray(new String[tests.size()]), 5);
-          Candidates expression = synthesizer.run(TimeUnit.MINUTES.toMillis(15));
-          System.out.println(expression);
         } catch (MavenInvocationException e) {
           throw new RuntimeException("Error occured during classpath evaluation.", e);
+        }
+
+        try {
+          // mvn test -DskipTests on instrumented project to be sure /target is fill ( mvn compile does not compile tests )
+          Utils.runMavenGoal(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("test", "-DskipTests"), Optional.empty());
+        } catch (MavenInvocationException e) {
+          throw new RuntimeException("Error occured during compiling.", e);
+        }
+
+        Synthesizer synthesizer = new SynthesizerImpl(files, location, JavaLibrary.classpathFrom(classpath), oracle, tests.toArray(new String[tests.size()]), 5);
+        Candidates expression = synthesizer.run(TimeUnit.MINUTES.toMillis(15));
+
+        if (expression != null) {
+          synthMethod.getBody().getLastStatement().replace(getFactory().Code().createCodeSnippetStatement("return " + expression.get(0).asPatch()));
+        } else {
+          // SYNTH NOT SUCCESSFUL
         }
       }
     }
