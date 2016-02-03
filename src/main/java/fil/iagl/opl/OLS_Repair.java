@@ -1,17 +1,24 @@
 package fil.iagl.opl;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Optional;
+
+import org.apache.commons.io.FileUtils;
 
 import com.sanityinc.jargs.CmdLineParser;
 import com.sanityinc.jargs.CmdLineParser.Option;
 
+import fil.iagl.opl.utils.Utils;
 import fr.inria.lille.commons.synthesis.CodeGenesis;
 import fr.inria.lille.commons.synthesis.smt.solver.SolverFactory;
 import fr.inria.lille.repair.common.config.Config;
 import spoon.Launcher;
 
 public class OLS_Repair {
+  public static final String MAVEN_HOME_PATH = "C:/Users/RMS/Downloads/apache-maven-3.3.3-bin/apache-maven-3.3.3";
+
   public static String PROJECT_PATH;
   public static String JUNIT_JAR_PATH;
   public static String Z3_PATH;
@@ -27,47 +34,35 @@ public class OLS_Repair {
     SolverFactory.setSolver(Config.INSTANCE.getSolver(), Config.INSTANCE.getSolverPath());
 
     File projectDir = new File(PROJECT_PATH);
+    File spoonedDir = new File("spooned");
+
+    String[] spoonArgsCollecting = {
+      "-i",
+      PROJECT_PATH + File.pathSeparatorChar + "src/main/java/_instrumenting",
+      "-o",
+      "spooned/src/test/java",
+      "-p",
+      "fil.iagl.opl.repair.OutputCollector",
+      "-x"
+    };
 
     String[] spoonArgsModeling = {
       "-i",
       PROJECT_PATH,
       "-p",
-      // "fil.iagl.opl.model.ConstructModel",
-      "fil.iagl.opl.repair.OutputCollector",
-      "--with-imports",
+      "fil.iagl.opl.model.ConstructModel",
       "-x"
     };
 
     try {
+      if (spoonedDir.exists()) {
+        FileUtils.forceDelete(spoonedDir);
+      }
+      FileUtils.copyDirectory(projectDir, spoonedDir);
+      Launcher.main(spoonArgsCollecting);
+      Utils.runMavenGoal("spooned", MAVEN_HOME_PATH, Arrays.asList("clean", "test"), Optional.empty());
+
       Launcher.main(spoonArgsModeling);
-      //// OLS_Synth.getInstance().synth(Model.getInstance());
-      //// if (OLS_Repair.patch.isSuccessful()) {
-      //// if (!OVERRIDE) {
-      //// String patchedProjectPath = PROJECT_PATH + "_patched";
-      //// File patchedProjectDir = new File(patchedProjectPath);
-      //// if (patchedProjectDir.exists()) {
-      //// FileUtils.forceDelete(patchedProjectDir);
-      //// }
-      //// FileUtils.copyDirectory(projectDir, patchedProjectDir);
-      //// PROJECT_PATH = patchedProjectPath;
-      //// projectDir = patchedProjectDir;
-      //// }
-      //// String[] spoonArgsApplyingPatch = {
-      //// "-i",
-      //// PROJECT_PATH + "/src/main/java",
-      //// "-o",
-      //// PROJECT_PATH + "/src/main/java",
-      //// "-p",
-      //// "fil.iagl.opl.repair.ApplyingPatch",
-      //// "--with-imports",
-      //// "-x"
-      //// };
-      //// Utils.cleanFolder(projectDir);
-      //// Launcher.main(spoonArgsApplyingPatch);
-      //// Utils.generateReport(projectDir);
-      //// System.out.println("Constant used : " + OLS_Repair.CONSTANTS_ARRAY);
-      //// System.out.println("Patch written in : " + PROJECT_PATH);
-      //// }
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

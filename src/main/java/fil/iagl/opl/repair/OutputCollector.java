@@ -8,7 +8,11 @@ import org.junit.runner.RunWith;
 
 import _instrumenting._CollectorRunner;
 import spoon.processing.AbstractProcessor;
+import spoon.reflect.code.CtBlock;
+import spoon.reflect.code.CtCatch;
 import spoon.reflect.code.CtInvocation;
+import spoon.reflect.code.CtStatement;
+import spoon.reflect.code.CtTry;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.visitor.filter.TypeFilter;
@@ -22,6 +26,10 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
 
   @Override
   public void process(CtMethod<?> method) {
+
+    if (method.getDocComment() == null) {
+      return;
+    }
 
     Pattern p = Pattern.compile("@link((.*)#(.*)\\((.*?)\\))");
     Matcher m = p.matcher(method.getDocComment().trim().replaceAll(" ", ""));
@@ -37,12 +45,24 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
     List<CtInvocation<?>> invocations = method.getElements(new TypeFilter<>(CtInvocation.class));
     for (CtInvocation<?> invocation : invocations) {
       if (invocation.getTarget().getType().getQualifiedName().equals("org.junit.Assert")) {
-        // TODO : Dynamic collect for expected value
-        // Model.addOutput(testedMethodSignature, method, Integer.parseInt(invocation.getArguments().get(0).toString()));
-        // testedMethodsSignatures.get(testedMethodSignature).get(method).add(invocation.getArguments().get(0));
-        invocation.insertBefore(getFactory().Code().createCodeSnippetStatement(
-          "_instrumenting._Collector.addOutput(\"" + parentClass.getQualifiedName() + "#" + method.getSimpleName() + "\"," + invocation.getArguments().get(0)
+        CtTry ctTry = getFactory().Core().createTry();
+        CtBlock<?> ctTryBlock = getFactory().Core().createBlock();
+        ctTry.setParent(method);
+        ctTry.setBody(ctTryBlock);
+
+        CtBlock<?> ctCatchBlock = getFactory().Core().createBlock();
+        CtCatch ctCatch = getFactory().Code().createCtCatch("e", AssertionError.class, ctCatchBlock);
+
+        ctTry.addCatcher(ctCatch);
+
+        CtStatement assertion = getFactory().Code().createCodeSnippetStatement(invocation.toString());
+        invocation.replace(ctTry);
+
+        ctTryBlock.addStatement(getFactory().Code().createCodeSnippetStatement(
+          "_instrumenting._Collector.addOutput(\"" + parentClass.getQualifiedName() + "#" + method.getSimpleName() + "\"," +
+            invocation.getArguments().get(0)
             + ")"));
+        ctTryBlock.addStatement(assertion);
       }
     }
 

@@ -5,13 +5,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import spoon.reflect.declaration.CtMethod;
-
 public class Model {
 
   private static final Model model = new Model();
 
-  private Map<String, Map<CtMethod<?>, List<Object>>> testedMethodsSignatures;
+  private Map<String, Map<String, List<Object>>> testedMethodsSignatures;
 
   private Model() {
     testedMethodsSignatures = new HashMap<>();
@@ -21,7 +19,7 @@ public class Model {
     return model;
   }
 
-  public Map<String, Map<CtMethod<?>, List<Object>>> getModel() {
+  public Map<String, Map<String, List<Object>>> getModel() {
     return model.testedMethodsSignatures;
   }
 
@@ -29,12 +27,13 @@ public class Model {
     model.testedMethodsSignatures.putIfAbsent(signature, new HashMap<>());
   }
 
-  public static void addTestMethod(String testedMethodSignature, CtMethod<?> testMethod) {
+  public static void addTestMethod(String testedMethodSignature, String testMethod) {
     model.testedMethodsSignatures.get(testedMethodSignature).putIfAbsent(testMethod, new ArrayList<>());
   }
 
-  public static void addOutput(String testedMethodSignature, CtMethod<?> testMethod, Object output) {
-    model.testedMethodsSignatures.get(testedMethodSignature).get(testMethod).add(output);
+  public static void addOutput(String testedMethodSignature, String testMethod, List<Object> outputs) {
+    addTestMethod(testedMethodSignature, testMethod);
+    model.testedMethodsSignatures.get(testedMethodSignature).get(testMethod).addAll(outputs);
   }
 
 }

@@ -7,6 +7,8 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import javax.tools.JavaCompiler;
@@ -15,11 +17,20 @@ import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.maven.shared.invoker.DefaultInvocationRequest;
+import org.apache.maven.shared.invoker.DefaultInvoker;
+import org.apache.maven.shared.invoker.InvocationOutputHandler;
+import org.apache.maven.shared.invoker.InvocationRequest;
+import org.apache.maven.shared.invoker.Invoker;
+import org.apache.maven.shared.invoker.MavenInvocationException;
 import org.junit.runner.JUnitCore;
 import org.junit.runner.Result;
 import org.xml.sax.SAXException;
 
 import fil.iagl.opl.OLS_Repair;
+import fil.iagl.opl.repair.ClasspathResolverInvocationOutputHandler;
+import spoon.reflect.declaration.CtClass;
+import spoon.reflect.declaration.CtMethod;
 
 public class Utils {
 
@@ -110,5 +121,29 @@ public class Utils {
       sourceFile.getAbsolutePath().substring(sourceFile.getAbsolutePath().lastIndexOf(File.separatorChar + "introclassJava")),
       successRate * 100, (int) totalSucceedForThisClass, (int) totalTestForThisClass);
     return successRate == 1;
+  }
+
+  public static String getFormalName(CtMethod<?> method) {
+    return method.getParent(CtClass.class).getQualifiedName() + "#" + method.getSimpleName();
+  }
+
+  public static void runMavenGoal(String pomPath, String mavenHomePath, List<String> goals, Optional<InvocationOutputHandler> ioh) throws MavenInvocationException {
+    InvocationRequest request = new DefaultInvocationRequest();
+    request.setPomFile(new File(pomPath));
+    request.setGoals(goals);
+
+    Invoker invoker = new DefaultInvoker();
+    invoker.setMavenHome(new File(mavenHomePath));
+    if (ioh.isPresent()) {
+      invoker.setOutputHandler(ioh.get());
+    }
+
+    invoker.execute(request);
+  }
+
+  public static String getDynamicClasspath(String pomPath, String mavenHomePath) throws MavenInvocationException {
+    ClasspathResolverInvocationOutputHandler ioh = new ClasspathResolverInvocationOutputHandler();
+    runMavenGoal(pomPath, mavenHomePath, Arrays.asList("dependency:build-classpath"), Optional.of(ioh));
+    return ioh.getClasspath();
   }
 }
