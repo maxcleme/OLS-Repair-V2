@@ -8,6 +8,7 @@ import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -127,7 +128,7 @@ public class Utils {
     return method.getParent(CtClass.class).getQualifiedName() + "#" + method.getSimpleName();
   }
 
-  public static void runMavenGoal(String pomPath, String mavenHomePath, List<String> goals, Optional<InvocationOutputHandler> ioh) throws MavenInvocationException {
+  public static int runMavenGoal(String pomPath, String mavenHomePath, List<String> goals, Optional<InvocationOutputHandler> ioh) throws MavenInvocationException {
     InvocationRequest request = new DefaultInvocationRequest();
     request.setPomFile(new File(pomPath));
     request.setGoals(goals);
@@ -137,13 +138,21 @@ public class Utils {
     if (ioh.isPresent()) {
       invoker.setOutputHandler(ioh.get());
     }
-
-    invoker.execute(request);
+    System.out.println("mvn " + goals.stream().collect(Collectors.joining(" ")));
+    return invoker.execute(request).getExitCode();
   }
 
   public static String getDynamicClasspath(String pomPath, String mavenHomePath) throws MavenInvocationException {
     ClasspathResolverInvocationOutputHandler ioh = new ClasspathResolverInvocationOutputHandler();
     runMavenGoal(pomPath, mavenHomePath, Arrays.asList("dependency:build-classpath"), Optional.of(ioh));
     return ioh.getClasspath();
+  }
+
+  public static boolean allTestPass(String pomPath, String mavenHomePath, Map<String, List<Object>> map) throws MavenInvocationException {
+    for (String test : map.keySet()) {
+      if (runMavenGoal(pomPath, mavenHomePath, Arrays.asList("-Dtest=" + test, "test"), Optional.empty()) != 0)
+        return false;
+    }
+    return true;
   }
 }

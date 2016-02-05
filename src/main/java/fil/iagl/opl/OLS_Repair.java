@@ -1,9 +1,13 @@
 package fil.iagl.opl;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import org.apache.commons.io.FileUtils;
@@ -29,6 +33,9 @@ public class OLS_Repair {
   public static Collection<Integer> CONSTANTS_ARRAY;
 
   public static CodeGenesis patch;
+
+  public static Map<String, Map<String, List<Object>>> collectedValues;
+  public static String currentMethod;
 
   public static void main(String[] args) {
     handleArgs(args);
@@ -63,7 +70,7 @@ public class OLS_Repair {
       "-x"
     };
 
-    String[] spoonArgsModeling = {
+    String[] spoonArgsSynth = {
       "-i",
       PROJECT_PATH + "/src/main/java",
       "-o",
@@ -84,10 +91,33 @@ public class OLS_Repair {
       } catch (MavenInvocationException e) {
         throw new RuntimeException("Error occured during dynamic output collect.", e);
       }
-      Launcher.main(spoonArgsModeling);
+
+      try {
+        FileInputStream fin = new FileInputStream("spooned/collect");
+        ObjectInputStream ois = new ObjectInputStream(fin);
+        collectedValues = (Map<String, Map<String, List<Object>>>) ois.readObject();
+        ois.close();
+      } catch (IOException | ClassNotFoundException e) {
+        throw new RuntimeException("Error occured when reading collected value.", e);
+      }
+
+      for (String methodToBeSynth : collectedValues.keySet()) {
+        currentMethod = methodToBeSynth;
+        while (!Utils.allTestPass(PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, collectedValues.get(currentMethod))) {
+          try {
+            // mvn test -DskipTests on instrumented project to be sure /target is fill ( mvn compile does not compile tests )
+            Utils.runMavenGoal(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("test", "-DskipTests"), Optional.empty());
+          } catch (MavenInvocationException e) {
+            throw new RuntimeException("Error occured during compiling.", e);
+          }
+          Launcher.main(spoonArgsSynth);
+        }
+      }
+
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+
   }
 
   private static void handleArgs(String[] args) {
