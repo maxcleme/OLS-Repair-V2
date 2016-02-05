@@ -52,7 +52,7 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
         ctTry.setBody(ctTryBlock);
 
         CtBlock<?> ctCatchBlock = getFactory().Core().createBlock();
-        CtCatch ctCatch = getFactory().Code().createCtCatch("e", AssertionError.class, ctCatchBlock);
+        CtCatch ctCatch = getFactory().Code().createCtCatch("e", Exception.class, ctCatchBlock);
 
         ctTry.addCatcher(ctCatch);
 

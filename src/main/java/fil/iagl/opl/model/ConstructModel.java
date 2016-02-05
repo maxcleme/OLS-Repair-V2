@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -21,7 +20,6 @@ import org.apache.maven.shared.invoker.MavenInvocationException;
 import fil.iagl.opl.OLS_Repair;
 import fil.iagl.opl.utils.Utils;
 import fr.inria.lille.repair.nopol.SourceLocation;
-import fr.inria.lille.spirals.repair.commons.Candidates;
 import fr.inria.lille.spirals.repair.synthesizer.Synthesizer;
 import fr.inria.lille.spirals.repair.synthesizer.SynthesizerImpl;
 import spoon.processing.AbstractProcessor;
@@ -58,16 +56,17 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
 
       System.out.println("Trying to synth : " + methodToBeSynth);
 
-      List<String> tests = new ArrayList<String>();
       Map<String, Object[]> oracle = new HashMap<String, Object[]>();
 
       for (Entry<String, List<Object>> entry : this.collectedValues.get(methodToBeSynth).entrySet()) {
-        tests.add(entry.getKey());
         oracle.put(entry.getKey(), entry.getValue().toArray(new Object[entry.getValue().size()]));
       }
 
-      System.out.println(tests);
-      System.out.println(oracle);
+      oracle.entrySet().forEach(entry -> {
+        System.out.println(entry.getKey());
+        System.out.println("\t" + Arrays.toString(entry.getValue()));
+      });
+
       Pattern p = Pattern.compile("(.*)#(.*)\\((.*?)\\)");
       Matcher m = p.matcher(methodToBeSynth);
       if (m.matches()) {
@@ -97,14 +96,11 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
           throw new RuntimeException("Error occured during compiling.", e);
         }
 
-        Synthesizer synthesizer = new SynthesizerImpl(files, location, JavaLibrary.classpathFrom(classpath), oracle, tests.toArray(new String[tests.size()]), 5);
-        Candidates expression = synthesizer.run(TimeUnit.MINUTES.toMillis(15));
+        Synthesizer synthesizer = new SynthesizerImpl(files, location, JavaLibrary.classpathFrom(classpath), oracle, oracle.keySet().toArray(new String[oracle.keySet().size()]),
+          30);
+        synthesizer.run(TimeUnit.MINUTES.toMillis(180));
 
-        if (expression != null) {
-          synthMethod.getBody().getLastStatement().replace(getFactory().Code().createCodeSnippetStatement("return " + expression.get(0).asPatch()));
-        } else {
-          // SYNTH NOT SUCCESSFUL
-        }
+        synthMethod.getBody().getLastStatement().replace(getFactory().Code().createCodeSnippetStatement("return " + synthesizer.getValidExpressions().get(0).asPatch()));
       }
     }
   }
