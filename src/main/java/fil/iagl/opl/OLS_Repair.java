@@ -4,11 +4,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.maven.shared.invoker.MavenInvocationException;
@@ -16,6 +16,7 @@ import org.apache.maven.shared.invoker.MavenInvocationException;
 import com.sanityinc.jargs.CmdLineParser;
 import com.sanityinc.jargs.CmdLineParser.Option;
 
+import fil.iagl.opl.repair.NoSynthFoundException;
 import fil.iagl.opl.utils.Utils;
 import fr.inria.lille.commons.synthesis.CodeGenesis;
 import fr.inria.lille.commons.synthesis.smt.solver.SolverFactory;
@@ -37,9 +38,10 @@ public class OLS_Repair {
   public static Map<String, Map<String, List<Object>>> collectedValues;
   public static String currentMethod;
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     handleArgs(args);
     Config.INSTANCE.setSolverPath(Z3_PATH);
+    Config.INSTANCE.setCollectOnlyUsedMethod(false);
     SolverFactory.setSolver(Config.INSTANCE.getSolver(), Config.INSTANCE.getSolverPath());
 
     if (!OVERRIDE) {
@@ -80,44 +82,66 @@ public class OLS_Repair {
       "-x"
     };
 
+    if (spoonedDir.exists()) {
+      FileUtils.forceDelete(spoonedDir);
+    }
+    FileUtils.copyDirectory(projectDir, spoonedDir);
     try {
-      if (spoonedDir.exists()) {
-        FileUtils.forceDelete(spoonedDir);
-      }
-      FileUtils.copyDirectory(projectDir, spoonedDir);
       Launcher.main(spoonArgsCollecting);
-      try {
-        Utils.runMavenGoal("spooned", OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("clean", "test"), Optional.empty());
-      } catch (MavenInvocationException e) {
-        throw new RuntimeException("Error occured during dynamic output collect.", e);
-      }
-
-      try {
-        FileInputStream fin = new FileInputStream("spooned/collect");
-        ObjectInputStream ois = new ObjectInputStream(fin);
-        collectedValues = (Map<String, Map<String, List<Object>>>) ois.readObject();
-        ois.close();
-      } catch (IOException | ClassNotFoundException e) {
-        throw new RuntimeException("Error occured when reading collected value.", e);
-      }
-
-      for (String methodToBeSynth : collectedValues.keySet()) {
-        currentMethod = methodToBeSynth;
-        while (!Utils.allTestPass(PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, collectedValues.get(currentMethod))) {
-          try {
-            // mvn test -DskipTests on instrumented project to be sure /target is fill ( mvn compile does not compile tests )
-            Utils.runMavenGoal(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("test", "-DskipTests"), Optional.empty());
-          } catch (MavenInvocationException e) {
-            throw new RuntimeException("Error occured during compiling.", e);
-          }
-          Launcher.main(spoonArgsSynth);
-        }
-      }
-
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Error during collecting output values.", e);
+    }
+    try {
+      Utils.runMavenGoal("spooned", OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("clean", "test"), null);
+    } catch (MavenInvocationException e) {
+      throw new RuntimeException("Error occured during dynamic output collect.", e);
     }
 
+    try {
+      FileInputStream fin = new FileInputStream("spooned/collect");
+      ObjectInputStream ois = new ObjectInputStream(fin);
+      collectedValues = (Map<String, Map<String, List<Object>>>) ois.readObject();
+      ois.close();
+    } catch (IOException | ClassNotFoundException e) {
+      throw new RuntimeException("Error occured when reading collected value.", e);
+    }
+
+    List<String> successfulSynth = new ArrayList<>();
+    boolean synthNeed = successfulSynth.size() != collectedValues.keySet().size();
+    boolean hasSynth = false;
+    while (synthNeed) {
+      System.out.println("SYNTH LOOP");
+      hasSynth = false;
+      for (String methodToBeSynth : collectedValues.keySet()) {
+        if (successfulSynth.contains(methodToBeSynth)) {
+          // ALREADY SYNTH
+          continue;
+        }
+
+        currentMethod = methodToBeSynth;
+        try {
+          // mvn test -DskipTests on instrumented project to be sure /target is fill ( mvn compile does not compile tests )
+          Utils.runMavenGoal(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH, Arrays.asList("clean", "test", "-DskipTests"), null);
+        } catch (MavenInvocationException e) {
+          throw new RuntimeException("Error occured during compiling.", e);
+        }
+        try {
+          Launcher.main(spoonArgsSynth);
+          successfulSynth.add(methodToBeSynth);
+          hasSynth = true;
+        } catch (NoSynthFoundException e) {
+          // WILL TRY LATER WITH NEXT SYNTH
+        } catch (Exception e) {
+          throw new RuntimeException("Error during synthetizing.", e);
+        }
+      }
+      if (!hasSynth) {
+        System.out.println("NO SYNTH DURING ENTIRE LOOP");
+        System.exit(0);
+      }
+      synthNeed = successfulSynth.size() != collectedValues.keySet().size();
+    }
+    System.out.println("END OF OLS");
   }
 
   private static void handleArgs(String[] args) {

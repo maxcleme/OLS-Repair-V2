@@ -1,7 +1,7 @@
 package fil.iagl.opl.model;
 
 import java.io.File;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,11 +9,11 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 import org.apache.maven.shared.invoker.MavenInvocationException;
 
 import fil.iagl.opl.OLS_Repair;
+import fil.iagl.opl.repair.NoSynthFoundException;
 import fil.iagl.opl.utils.Utils;
 import fr.inria.lille.repair.nopol.SourceLocation;
 import fr.inria.lille.spirals.repair.synthesizer.Synthesizer;
@@ -42,18 +42,20 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
       oracle.put(entry.getKey(), entry.getValue().toArray(new Object[entry.getValue().size()]));
     }
 
-    oracle.entrySet().forEach(entry -> {
-      System.out.println(entry.getKey());
-      System.out.println("\t" + Arrays.toString(entry.getValue()));
-    });
+    // oracle.entrySet().forEach(entry -> {
+    // System.out.println(entry.getKey());
+    // System.out.println("\t" + Arrays.toString(entry.getValue()));
+    // });
 
     Pattern p = Pattern.compile("(.*)#(.*)\\((.*?)\\)");
     Matcher m = p.matcher(OLS_Repair.currentMethod);
     m.matches();
 
     CtClass<?> clazz = getFactory().Class().get(m.group(1));
-    List<CtTypeReference<?>> types = Arrays.stream(m.group(3).split(",")).map(typeFromDocComment -> getFactory().Type().createReference(typeFromDocComment))
-      .collect(Collectors.toList());
+    List<CtTypeReference<?>> types = new ArrayList<CtTypeReference<?>>();
+    for (String typeFromDocComment : m.group(3).split(",")) {
+      types.add(getFactory().Type().createReference(typeFromDocComment));
+    }
     CtMethod<?> synthMethod = clazz.getMethod(m.group(2), types.toArray(new CtTypeReference<?>[types.size()]));
 
     SourceLocation location = new SourceLocation(m.group(1), synthMethod.getBody().getLastStatement().getPosition().getLine());
@@ -65,7 +67,7 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
     try {
       classpath = Utils.getDynamicClasspath(OLS_Repair.PROJECT_PATH, OLS_Repair.MAVEN_HOME_PATH);
       classpath += File.pathSeparatorChar + OLS_Repair.PROJECT_PATH + File.separatorChar + "target" + File.separatorChar + "classes";
-      classpath += File.pathSeparatorChar + OLS_Repair.PROJECT_PATH + File.separatorChar + "target" + File.separatorChar + "test-classes";
+      classpath += File.pathSeparatorChar + new File("spooned").getAbsolutePath() + File.separatorChar + "target" + File.separatorChar + "test-classes";
     } catch (MavenInvocationException e) {
       throw new RuntimeException("Error occured during classpath evaluation.", e);
     }
@@ -73,8 +75,11 @@ public class ConstructModel extends AbstractProcessor<CtMethod<?>> {
     // TODO: Synth in another method in order to prettyPrint code after each synth
     Synthesizer synthesizer = new SynthesizerImpl(files, location, JavaLibrary.classpathFrom(classpath), oracle, oracle.keySet().toArray(new String[oracle.keySet().size()]),
       5);
-    synthesizer.run(TimeUnit.MINUTES.toMillis(30));
+    synthesizer.run(TimeUnit.MINUTES.toMillis(15));
 
+    if (synthesizer.getValidExpressions().isEmpty()) {
+      throw new NoSynthFoundException();
+    }
     synthMethod.getBody().getLastStatement().replace(getFactory().Code().createCodeSnippetStatement("return " + synthesizer.getValidExpressions().get(0).asPatch()));
   }
 

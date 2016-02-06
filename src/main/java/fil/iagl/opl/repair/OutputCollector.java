@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.runner.RunWith;
 
 import _instrumenting._CollectorRunner;
@@ -19,6 +20,19 @@ import spoon.reflect.declaration.CtMethod;
 import spoon.reflect.visitor.filter.TypeFilter;
 
 public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
+
+  private String booleanName;
+  private CtStatement variableInit;
+  private CtStatement variableToFalse;
+  private CtStatement finalAssert;
+
+  @Override
+  public void init() {
+    booleanName = RandomStringUtils.randomAlphabetic(15);
+    variableInit = getFactory().Code().createCodeSnippetStatement("boolean " + booleanName + " = true");
+    variableToFalse = getFactory().Code().createCodeSnippetStatement(booleanName + "=false");
+    finalAssert = getFactory().Code().createCodeSnippetStatement("org.junit.Assert.assertTrue(" + booleanName + ")");
+  }
 
   @Override
   public boolean isToBeProcessed(CtMethod<?> candidate) {
@@ -38,12 +52,14 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
       return;
     }
 
+    testMethod.getBody().getStatements().add(0, variableInit);
+
     CtClass<?> parentTestClass = testMethod.getParent(CtClass.class);
 
     if (parentTestClass.getAnnotation(RunWith.class) == null)
       getFactory().Annotation().annotate(parentTestClass, RunWith.class, "value", _CollectorRunner.class);
 
-    List<CtInvocation<?>> invocations = testMethod.getElements(new TypeFilter<>(CtInvocation.class));
+    List<CtInvocation<?>> invocations = testMethod.getElements(new TypeFilter<CtInvocation<?>>(CtInvocation.class));
     for (CtInvocation<?> invocation : invocations) {
       if (invocation.getTarget().getType().getQualifiedName().equals("org.junit.Assert")) {
         CtTry ctTry = getFactory().Core().createTry();
@@ -53,6 +69,7 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
 
         CtBlock<?> ctCatchBlock = getFactory().Core().createBlock();
         CtCatch ctCatch = getFactory().Code().createCtCatch("e", Exception.class, ctCatchBlock);
+        ctCatch.getBody().addStatement(variableToFalse);
 
         ctTry.addCatcher(ctCatch);
 
@@ -66,6 +83,8 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
         ctTryBlock.addStatement(assertion);
       }
     }
+
+    testMethod.getBody().addStatement(finalAssert);
 
   }
 
