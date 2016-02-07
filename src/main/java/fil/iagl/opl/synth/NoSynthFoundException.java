@@ -1,4 +1,4 @@
-package fil.iagl.opl.repair;
+package fil.iagl.opl.synth;
 
 public class NoSynthFoundException extends RuntimeException {
 

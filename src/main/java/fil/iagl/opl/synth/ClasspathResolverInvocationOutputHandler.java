@@ -1,18 +1,18 @@
-package fil.iagl.opl.repair;
+package fil.iagl.opl.synth;
 
-import org.apache.maven.shared.invoker.InvocationOutputHandler;
-
-public class ClasspathResolverInvocationOutputHandler implements InvocationOutputHandler {
+public class ClasspathResolverInvocationOutputHandler extends VerboseOutputHandler {
 
   private boolean next;
   private String classpath;
 
-  public ClasspathResolverInvocationOutputHandler() {
+  public ClasspathResolverInvocationOutputHandler(boolean verbose) {
+    super(verbose);
     this.next = false;
   }
 
   @Override
   public void consumeLine(String line) {
+    super.consumeLine(line);
     if (next) {
       this.classpath = line;
     }

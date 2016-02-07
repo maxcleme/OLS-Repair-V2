@@ -1,4 +1,4 @@
-package fil.iagl.opl.repair;
+package fil.iagl.opl.synth;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -8,6 +8,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.junit.runner.RunWith;
 
 import _instrumenting._CollectorRunner;
+import fil.iagl.opl.Constantes;
 import fil.iagl.opl.utils.Utils;
 import spoon.processing.AbstractProcessor;
 import spoon.reflect.code.CtBlock;
@@ -46,7 +47,7 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
       return;
     }
 
-    Pattern p = Pattern.compile("@link((.*)#(.*)\\((.*?)\\))");
+    Pattern p = Pattern.compile("@link(" + Constantes.getPattern() + ")");
     Matcher m = p.matcher(testMethod.getDocComment().trim().replaceAll(" ", ""));
     if (!m.matches()) {
       return;
