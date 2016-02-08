@@ -71,13 +71,13 @@
 			<version>2.0M10</version>
 		</dependency>
 
-<!-- 		<dependency> -->
-<!-- 			<groupId>fr.inria.lille.adam</groupId> -->
-<!-- 			<artifactId>nopol</artifactId> -->
-<!-- 			<scope>system</scope> -->
-<!-- 			<version>0.0.3-SNAPSHOT-jar-with-dependencies</version> -->
-<!-- 			<systemPath>${basedir}/lib/nopol-0.0.3-SNAPSHOT-jar-with-dependencies.jar</systemPath> -->
-<!-- 		</dependency> -->
+		<dependency>
+			<groupId>fr.inria.lille.adam</groupId>
+			<artifactId>nopol</artifactId>
+			<scope>system</scope>
+			<version>0.0.3-SNAPSHOT-jar-with-dependencies</version>
+			<systemPath>${basedir}/lib/nopol-0.0.3-SNAPSHOT-jar-with-dependencies.jar</systemPath>
+		</dependency>
 
 
 

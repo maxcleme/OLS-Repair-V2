@@ -1,5 +1,4 @@
 *target*
-*.jar
 *.war
 *.ear
 *.class
@@ -55,3 +54,4 @@ local.properties
 *.launch
 /.apt_generated/
 /.factorypath
+nopol
