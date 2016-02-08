@@ -5,7 +5,7 @@
 	<groupId>fil.iagl.opl</groupId>
 	<artifactId>repair</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<packaging>pom</packaging>
+	<packaging>jar</packaging>
 
 	<name>repair</name>
 	<url>http://maven.apache.org</url>
@@ -16,9 +16,6 @@
 		<maven.compiler.target>1.7</maven.compiler.target>
 	</properties>
 
-	<modules>
-		<module>lib/nopol/nopol</module>
-	</modules>
 
 	<dependencies>
 		<dependency>
@@ -46,7 +43,7 @@
 		<dependency>
 			<groupId>fr.inria.gforge.spoon</groupId>
 			<artifactId>spoon-core</artifactId>
-			<version>5.0.1</version>
+			<version>4.4.0</version>
 		</dependency>
 
 		<dependency>
@@ -67,6 +64,20 @@
 			<artifactId>slf4j-api</artifactId>
 			<version>1.7.14</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.easytesting</groupId>
+			<artifactId>fest-assert-core</artifactId>
+			<version>2.0M10</version>
+		</dependency>
+
+<!-- 		<dependency> -->
+<!-- 			<groupId>fr.inria.lille.adam</groupId> -->
+<!-- 			<artifactId>nopol</artifactId> -->
+<!-- 			<scope>system</scope> -->
+<!-- 			<version>0.0.3-SNAPSHOT-jar-with-dependencies</version> -->
+<!-- 			<systemPath>${basedir}/lib/nopol-0.0.3-SNAPSHOT-jar-with-dependencies.jar</systemPath> -->
+<!-- 		</dependency> -->
 
 
 
@@ -95,4 +106,33 @@
 			<snapshots />
 		</repository>
 	</repositories>
+
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-resources-plugin</artifactId>
+				<version>2.7</version>
+				<executions>
+					<execution>
+						<id>copy-resources</id>
+						<!-- here the phase you need -->
+						<phase>validate</phase>
+						<goals>
+							<goal>copy-resources</goal>
+						</goals>
+						<configuration>
+							<outputDirectory>${basedir}/target/</outputDirectory>
+							<resources>
+								<resource>
+									<directory>${basedir}/lib/</directory>
+								</resource>
+							</resources>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+
+
 </project>

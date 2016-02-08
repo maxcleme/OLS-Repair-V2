@@ -8,7 +8,6 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
@@ -27,15 +26,38 @@ import fil.iagl.opl.synth.VerboseOutputHandler;
 import spoon.reflect.declaration.CtClass;
 import spoon.reflect.declaration.CtMethod;
 
+/**
+ * @author Maxime CLEMENT
+ *
+ * Utility class
+ */
 public class Utils {
 
-  private static final Class<?>[] parameters = new Class[] {URL.class};
   private static final Logger logger = Logger.getRootLogger();
 
+  /**
+   * Restricted constructor
+   */
+  private Utils() {
+  }
+
+  /**
+   * @param method the method concerned
+   * @return the name of the method with the format : class.qualified.name#methodName(type.qualified.name...)
+   */
   public static String getFormalName(CtMethod<?> method) {
     return method.getParent(CtClass.class).getQualifiedName() + "#" + method.getSimpleName();
   }
 
+  /**
+   * Run a set of Maven goals.
+   * 
+   * @param pomPath pom.xml location of the project
+   * @param goals Sets of goals
+   * @param ioh Outputhandler, if null the VerboseOutputHandler is used
+   * @return status code
+   * @throws MavenInvocationException exception throw by Maven Invoker API
+   */
   public static int runMavenGoal(String pomPath, List<String> goals, InvocationOutputHandler ioh) throws MavenInvocationException {
     InvocationRequest request = new DefaultInvocationRequest();
     request.setPomFile(new File(pomPath));
@@ -53,35 +75,58 @@ public class Utils {
     return invoker.execute(request).getExitCode();
   }
 
+  /**
+   * Compute classpath from pom.xml
+   * 
+   * @param pomPath pom.xml location
+   * @return classpath
+   * @throws MavenInvocationException exception throw by Maven Invoker API
+   */
   public static String getDynamicClasspath(String pomPath) throws MavenInvocationException {
     ClasspathResolverInvocationOutputHandler ioh = new ClasspathResolverInvocationOutputHandler(false);
     runMavenGoal(pomPath, Arrays.asList("dependency:build-classpath"), ioh);
     return ioh.getClasspath();
   }
 
-  public static boolean allTestPass(String pomPath, Map<String, List<Object>> map) throws MavenInvocationException {
-    for (String test : map.keySet()) {
+  /**
+   * Check if all tests pass as parameter are passing
+   * 
+   * @param pomPath pom.xml location
+   * @param tests lists of test qualified name classes
+   * @return true if all tests pass, false otherwise
+   * @throws MavenInvocationException exception throw by Maven Invoker API
+   */
+  public static boolean allTestPass(String pomPath, List<String> tests) throws MavenInvocationException {
+    for (String test : tests) {
       if (runMavenGoal(pomPath, Arrays.asList("-Dtest=" + test, "test"), null) != 0)
         return false;
     }
     return true;
   }
 
-  public static void addURL(URL u) {
-
+  /**
+   * Dynamically add url to current classpath
+   * 
+   * @param url Url to add
+   */
+  public static void addURL(URL url) {
     URLClassLoader sysloader = (URLClassLoader) ClassLoader.getSystemClassLoader();
     Class<?> sysclass = URLClassLoader.class;
-
     try {
-      Method method = sysclass.getDeclaredMethod("addURL", parameters);
+      Method method = sysclass.getDeclaredMethod("addURL", new Class[] {URL.class});
       method.setAccessible(true);
-      method.invoke(sysloader, new Object[] {u});
+      method.invoke(sysloader, new Object[] {url});
     } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchMethodException | SecurityException e) {
       throw new RuntimeException("Exception occured during adding URL to system classloader", e);
     }
 
   }
 
+  /**
+   * Delete folder if exists
+   * 
+   * @param dir Directory concerned
+   */
   public static void deleteIfExist(File dir) {
     try {
       if (dir.exists()) {
