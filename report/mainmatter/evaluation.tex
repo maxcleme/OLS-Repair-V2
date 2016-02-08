@@ -6,6 +6,69 @@
 
 \chapter{Évaluation}
 	\thispagestyle{document}
+	
+\par L'évaluation de OLS-Test a été réalisé sur le projet java-util\footnote{\url{https://github.com/jdereg/java-util}}. Ce projet a pour avantage de ne pas être trop complexe, et possède de une très bonne couverture de code ($ >98\% $). Parmis les différentes classes utilitaires de ce projet, l'attention s'est porté sur les classes \textit{StringUtilities} et \textit{TestStringUtilities}.
 
+\section{Transformations apportées}
+
+\par Afin de pouvoir évaluer OLS-Test sur ce projet, des petites transformation ont été appliquées. Tous d'abord, le référencement dans les méthodes de tests vers les implémentations comme expliqué en \ref{fig:ciblage}. Ensuite, la dernière ligne de chaque méthode référencée est remplacée par une exception. Suite à cette transformation, tous les tests utilisant ces méthodes échoues. Les sources utilisés pour l'évaluation sur disponiblen sur le GitHub\footnote{\url{https://github.com/maxcleme/OLS-Test}} de OLS-Test.
+
+
+\section{Résultats}
+
+\par Lors des différentes exécutions de OLS-Test sur java-util, des métriques ont pu être obtenus, ces dernières sont présentées dans la table \ref{table:resultats}. Pour des contraintes de temps d'exécution, les méthodes collectés sur le type String ont été drastiquement réduite. Uniquement les méthodes \textit{equals}, \textit{equalsIgnoreCases} et \textit{length} ont pu être utilisé. Lors des synthèses des méthodes \textit{isEmpty} et \textit{hasContent}, aucune solution n'a été trouvée en premier lieu. Cependant, c'est en ajoutant la constante \textit{0}, une synthèse est possible. Pour les quatres dernières méthodes de table \ref{table:resultats}, des erreurs internes ont empêché le bon fonctionnement de OLS-Test. La table \ref{table:patch} montre les différentes synthèses réalisées.
+
+
+
+\begin{table}
+\centering
+\begin{tabular}{|c|c|c|c|c|c|c|}
+\hline
+Méthode & Constantes & Variables & Expressions & Temps(ms) & Synthèse \\
+\hline
+isEmpty & ${ 0 }$ & 1 & 3230 & 11229 & oui \\
+\hline
+hasContent & ${ 0 }$ & 1 & 5125 & 12096 & non \\
+\hline
+equalsIgnoreCaseWithTrim & $\varnothing$ & 2 & 182 & 11924 & oui\\
+\hline
+equals & $\varnothing$ & 2 & 11 & 12592 & oui\\
+\hline
+equalsIgnoringCase & $\varnothing$ & 2 & 11 & 12325 & oui\\
+\hline
+lastIndexOf & $\varnothing$ & / & / & / & non \\
+\hline
+length & $\varnothing$ & / & / & / & non\\
+\hline
+levenshteinDistance & $\varnothing$ & / & / & / & non\\
+\hline
+damerauLevenshtein & $\varnothing$ & / & / & / & non\\
+\hline
+\end{tabular}
+
+\caption{Résultats des différentes exécutions sur java-util}
+\label{table:resultats}
+\end{table}         
+
+\begin{table}
+\centering
+\begin{tabular}{|c|c|}
+\hline
+Méthode & Ligne synthétisée \\
+\hline
+isEmpty &  ( s == null ) $||$ ( 0 == s.length() ) \\
+\hline
+hasContent & ( s != null ) \&\& ( ( s == null ) $||$ ( 0 != s.length() ) ) \\
+\hline
+equalsIgnoreCaseWithTrim & ( s2.length() - s1.length() ) $<=$ s1.length()\\
+\hline
+equals & ! str1.equalsIgnoreCase( str2 )\\
+\hline
+equalsIgnoringCase & ! str1.equalsIgnoreCase( str2 )\\
+\hline
+\end{tabular}
+\caption{Synthèses trouvées lors des exécutions sur java-util}
+\label{table:patch}
+\end{table}
 
 

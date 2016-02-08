@@ -19,7 +19,7 @@
 \label{sec:hypotheses}
 
 
-\par ??? se limite uniquement aux méthodes ayant un type de retour, les méthodes de type \textit{void} ne peuvent pas être synthétisées. De plus, la phase de collecte des oracles ne permet pas de récupérer une sortie de type exception lorsqu'elle n'est pas spécifiée dans une assertion (\textit{@Test en java}). Lors de la synthèse, uniquement la dernière ligne de la méthode sera synthétisée, le reste de la méthode ne sera pas modifié. De part le fait que la collecte des oracles est dynamique, il n'y pas de limite sur la complexité ou l'écriture d'un test.
+\par OLS-Test se limite uniquement aux méthodes ayant un type de retour, les méthodes de type \textit{void} ne peuvent pas être synthétisées. De plus, la phase de collecte des oracles ne permet pas de récupérer une sortie de type exception lorsqu'elle n'est pas spécifiée dans une assertion (\textit{@Test en java}). Lors de la synthèse, uniquement la dernière ligne de la méthode sera synthétisée, le reste de la méthode ne sera pas modifié. De part le fait que la collecte des oracles est dynamique, il n'y pas de limite sur la complexité ou l'écriture d'un test.
 
 
 
@@ -119,12 +119,12 @@ Opérateurs & ! ++ $--$ \&\& $|$ $|$ == != $<$= $<$ + $-$ * / \% [appel de méth
 \section{Implementation}
 \label{sec:implementation}
 
-\par ??? est implementé en Java, pour les différentes transformation et instrumentation de code source, il utilise Spoon\footnote{\url{http://spoon.gforge.inria.fr/}}. Les spécifications sous forme de tests sont également écrite en Java, à l'aide du framework JUnit\footnote{\url{http://junit.org/}}. Comme énoncé en \ref{subsec:ciblage}, le référencement de méthode utilise la Javadoc et \textit{@see}. ??? utilise également Maven Invoker API\footnote{\url{https://maven.apache.org/shared/maven-invoker/}}, afin de démarrer différent \textit{goals} sur le projets en cours d'analyse.
+\par OLS-Test est implementé en Java, pour les différentes transformation et instrumentation de code source, il utilise Spoon\footnote{\url{http://spoon.gforge.inria.fr/}}. Les spécifications sous forme de tests sont également écrite en Java, à l'aide du framework JUnit\footnote{\url{http://junit.org/}}. Comme énoncé en \ref{subsec:ciblage}, le référencement de méthode utilise la Javadoc et \textit{@see}. OLS-Test utilise également Maven Invoker API\footnote{\url{https://maven.apache.org/shared/maven-invoker/}}, afin de démarrer différent \textit{goals} sur le projets en cours d'analyse.
 
 
 \subsection{Injection du harnais de test}
 
-\par La phase de collecte des oracles expliquée en \ref{subsec:collecte_sorties} s'effectue de la manière suivante. Les tests sont modifiées à l'aide Spoon pour récupérer les valeurs attendues par les assertions. Or, puisque ces tests seront exécuter à l'aide de Maven Invoker API, le context de ??? ne sera pas accessible. Pour résoudre se problème, ??? injecte également un harnais de test dans le projet contenant les méthodes à synthétiser. Ce harnais est composé d'un \textit{Runner} personnalisé, ainsi que d'une structure contenant les différents oracles durant l'exécution. La collecte se fera donc dans le context du projet passé en paramètre. À la fin de l'exécution des tests, le \textit{Runner} sérialise les oracles dans un fichier. Il ne restera plus qu'à ??? de les récupérer une fois le \textit{goal} maven terminé. La figure \ref{fig:workflow_collectes_sorties} représente le workflow lors de la phase de collecte des sorties.
+\par La phase de collecte des oracles expliquée en \ref{subsec:collecte_sorties} s'effectue de la manière suivante. Les tests sont modifiées à l'aide Spoon pour récupérer les valeurs attendues par les assertions. Or, puisque ces tests seront exécuter à l'aide de Maven Invoker API, le context de OLS-Test ne sera pas accessible. Pour résoudre se problème, OLS-Test injecte également un harnais de test dans le projet contenant les méthodes à synthétiser. Ce harnais est composé d'un \textit{Runner} personnalisé, ainsi que d'une structure contenant les différents oracles durant l'exécution. La collecte se fera donc dans le context du projet passé en paramètre. À la fin de l'exécution des tests, le \textit{Runner} sérialise les oracles dans un fichier. Il ne restera plus qu'à OLS-Test de les récupérer une fois le \textit{goal} maven terminé. La figure \ref{fig:workflow_collectes_sorties} représente le workflow lors de la phase de collecte des sorties.
 
 \begin{figure}[H]
 \begin{center}
@@ -168,7 +168,7 @@ public void test() :
 \begin{figure}[H]
 
 \begin{verbatim}
-Usage: OLS_Repair
+Usage: OLS_Test
 	    -s, --source-path           path_program
 	    -m, --maven-home-path       path_maven_home
    [-c, --constant              one_constant_to_add]*
