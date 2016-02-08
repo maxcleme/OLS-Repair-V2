@@ -15,7 +15,7 @@ public class AssertionInvocationFilter extends TypeFilter<CtInvocation<?>> {
 
   @Override
   public boolean matches(CtInvocation<?> element) {
-    return super.matches(element) && element.getTarget() != null && element.getTarget().toString().equals("org.junit.Assert");
+    return super.matches(element) && element.toString().startsWith("org.junit.Assert");
   }
 
 }

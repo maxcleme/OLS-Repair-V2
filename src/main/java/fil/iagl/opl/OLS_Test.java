@@ -8,43 +8,36 @@ import org.apache.commons.io.FileUtils;
 import fil.iagl.opl.synth.Synth;
 import fil.iagl.opl.utils.Params;
 import fil.iagl.opl.utils.Utils;
-import fr.inria.lille.repair.common.config.Config;
 
 /**
  * @author Maxime CLEMENT
  *
  * Entry point
  */
-public class OLS_Repair {
+public class OLS_Test {
 
   public static void main(String[] args) throws IOException {
     // Parse arguments from user
-    Params.handleArgs(args);
+    Params params = new Params(args);
 
-    // DynaMoth Conf
-    Config.INSTANCE.setCollectOnlyUsedMethod(false);
-
-    Utils.deleteIfExist(Constantes.getSpoonedDir());
+    Utils.deleteIfExist(Constantes.SPOONED_FOLDER_NAME);
 
     // Create duplicate folder if -o is not specified
-    if (!Constantes.getOverride()) {
-      String workingDirPath = Constantes.getProjectPath() + "_synth";
+    if (!params.getOverride()) {
+      String workingDirPath = params.getProjectPath() + "_synth";
       File workingDir = new File(workingDirPath);
-      File projectDir = new File(Constantes.getProjectPath());
+      File projectDir = new File(params.getProjectPath());
       try {
         Utils.deleteIfExist(workingDir);
-        if (workingDir.exists()) {
-          FileUtils.forceDelete(workingDir);
-        }
         FileUtils.copyDirectory(projectDir, workingDir);
-        Constantes.setProjectPath(workingDirPath);
+        params.setProjectPath(workingDirPath);
       } catch (IOException e) {
         throw new RuntimeException("Error occured when creating temporary directory", e);
       }
     }
 
     // Run the synthesizer
-    new Synth().start();
+    new Synth(params).start();
     System.exit(0); // Force to kill all remaining DynaMoth' threads
   }
 

@@ -79,7 +79,7 @@ public class OutputCollector extends AbstractProcessor<CtMethod<?>> {
     }
 
     // If no @link qualifiedName#method(type...) pattern, do not instrument it.
-    Pattern p = Pattern.compile("@see(" + Constantes.getPattern() + ")");
+    Pattern p = Pattern.compile("@see(" + Constantes.PATTERN + ")");
     Matcher m = p.matcher(testMethod.getDocComment().trim().replaceAll(" ", ""));
     if (!m.matches()) {
       return;

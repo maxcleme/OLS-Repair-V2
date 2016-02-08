@@ -15,6 +15,7 @@ import org.apache.log4j.Logger;
 import org.apache.maven.shared.invoker.MavenInvocationException;
 
 import fil.iagl.opl.Constantes;
+import fil.iagl.opl.utils.Params;
 import fil.iagl.opl.utils.Utils;
 import spoon.Launcher;
 import xxl.java.library.JavaLibrary;
@@ -32,20 +33,21 @@ public class Synth {
    * Args for spoon the instrument tests
    */
   private String[] spoonArgsCollecting;
-  /**
-   * Args for spoon to apply patch
-   */
-  private String[] spoonArgsSynth;
 
-  public Synth() {
+  /**
+   * Users parameters
+   */
+  private Params params;
+
+  public Synth(Params params) {
+    this.params = params;
     this.spoonArgsCollecting = new String[] {
-      "-i", Constantes.getProjectPath() + "/src/main/java" + File.pathSeparatorChar + Constantes.getProjectPath() + "/src/test/java" + File.pathSeparatorChar
+      "-i", params.getProjectPath() + "/src/main/java" + File.pathSeparatorChar + params.getProjectPath() + "/src/test/java" + File.pathSeparatorChar
         + "src/main/java/_instrumenting",
-      "-o", Constantes.getSpoonedFolderName() + "/src/test/java",
+      "-o", Constantes.SPOONED_FOLDER_NAME + "/src/test/java",
       "-p", OutputCollector.class.getName(),
       "-x"
     };
-
   }
 
   /**
@@ -53,14 +55,12 @@ public class Synth {
    */
   public void start() {
     // The project pass as parameter
-    File projectDir = new File(Constantes.getProjectPath());
+    File projectDir = new File(params.getProjectPath());
 
     // Remove old execution result
     try {
-      if (Constantes.getSpoonedDir().exists()) {
-        FileUtils.forceDelete(Constantes.getSpoonedDir());
-      }
-      FileUtils.copyDirectory(projectDir, Constantes.getSpoonedDir());
+      Utils.deleteIfExist(Constantes.SPOONED_FOLDER_NAME);
+      FileUtils.copyDirectory(projectDir, new File(Constantes.SPOONED_FOLDER_NAME));
     } catch (IOException e) {
       throw new RuntimeException("Error during copyping project to temporary folder", e);
     }
@@ -76,7 +76,7 @@ public class Synth {
     // Run instrumented test
     try {
       logger.info("Running instrumented tests to collect output values...");
-      Utils.runMavenGoal(Constantes.getSpoonedFolderName(), Arrays.asList("clean", "test"), null);
+      Utils.runMavenGoal(Constantes.SPOONED_FOLDER_NAME, Arrays.asList("clean", "test"), null, params);
     } catch (MavenInvocationException e) {
       throw new RuntimeException("Error occured during dynamic output collect.", e);
     }
@@ -84,7 +84,7 @@ public class Synth {
     // mvn test -DskipTests on instrumented project to be sure /target is fill ( mvn compile does not compile tests )
     try {
       logger.info("Compiling...");
-      Utils.runMavenGoal(Constantes.getProjectPath(), Arrays.asList("clean", "test", "-DskipTests"), null);
+      Utils.runMavenGoal(params.getProjectPath(), Arrays.asList("clean", "test", "-DskipTests"), null, params);
     } catch (MavenInvocationException e) {
       throw new RuntimeException("Error occured during compiling.", e);
     }
@@ -94,11 +94,10 @@ public class Synth {
     String classpathAsString;
     URL[] classpath;
     try {
-      classpathAsString = Utils.getDynamicClasspath(Constantes.getProjectPath());
-      classpathAsString += File.pathSeparatorChar + Constantes.getProjectPath() + File.separatorChar + "target" + File.separatorChar + "classes";
-      classpathAsString += File.pathSeparatorChar + Constantes.getSpoonedDir().getAbsolutePath() + File.separatorChar + "target" + File.separatorChar + "test-classes";
+      classpathAsString = Utils.getDynamicClasspath(params.getProjectPath(), params);
+      classpathAsString += File.pathSeparatorChar + params.getProjectPath() + File.separatorChar + "target" + File.separatorChar + "classes";
+      classpathAsString += File.pathSeparatorChar + Constantes.SPOONED_FOLDER_NAME + File.separatorChar + "target" + File.separatorChar + "test-classes";
       classpath = JavaLibrary.classpathFrom(classpathAsString);
-      Constantes.setClasspath(classpath);
     } catch (MavenInvocationException e) {
       throw new RuntimeException("Error occured during classpath evaluation.", e);
     }
@@ -109,39 +108,37 @@ public class Synth {
     }
 
     // Retrieved oracle structure serialized in /collect file
+    Map<String, Map<String, List<Object>>> allOracles;
     try {
-      FileInputStream fin = new FileInputStream(Constantes.getSpoonedFolderName() + "/collect");
+      FileInputStream fin = new FileInputStream(Constantes.SPOONED_FOLDER_NAME + "/collect");
       ObjectInputStream ois = new ObjectInputStream(fin);
-      Constantes.setCollectedValues((Map<String, Map<String, List<Object>>>) ois.readObject());
+      allOracles = ((Map<String, Map<String, List<Object>>>) ois.readObject());
       ois.close();
     } catch (IOException | ClassNotFoundException e) {
       throw new RuntimeException("Error occured when reading collected value.", e);
     }
 
     // Main loop
-    String sourcePath = Constantes.getProjectPath() + "/src/main/java";
-    DynaMothCaller caller = new DynaMothCaller(sourcePath, sourcePath);
+    String sourcePath = params.getProjectPath() + "/src/main/java";
+    DynaMothCaller caller = new DynaMothCaller(sourcePath, sourcePath, params);
     List<String> successfulSynth = new ArrayList<>();
-    boolean synthNeed = successfulSynth.size() != Constantes.getCollectedValues().keySet().size();
+    boolean synthNeed = successfulSynth.size() != allOracles.keySet().size();
     boolean hasSynth = false;
 
     // While method could be synth
     while (synthNeed) {
       hasSynth = false;
       // For all method with @link and valid pattern
-      for (String methodToBeSynth : Constantes.getCollectedValues().keySet()) {
+      for (String methodToBeSynth : allOracles.keySet()) {
         if (successfulSynth.contains(methodToBeSynth)) {
           // Already synth this method
           continue;
         }
 
-        // Set the current method
-        Constantes.setCurrentMethod(methodToBeSynth);
-
         // mvn test -DskipTests on instrumented project to be sure /target is fill ( mvn compile does not compile tests )
         try {
           logger.info("Compiling...");
-          Utils.runMavenGoal(Constantes.getProjectPath(), Arrays.asList("clean", "test", "-DskipTests"), null);
+          Utils.runMavenGoal(params.getProjectPath(), Arrays.asList("clean", "test", "-DskipTests"), null, params);
         } catch (MavenInvocationException e) {
           throw new RuntimeException("Error occured during compiling.", e);
         }
@@ -149,7 +146,7 @@ public class Synth {
         // Start DynaMoth and apply patch if found
         try {
           // Launcher.main(spoonArgsSynth);
-          caller.call(methodToBeSynth);
+          caller.call(methodToBeSynth, allOracles, classpath);
           successfulSynth.add(methodToBeSynth);
           hasSynth = true; // One method has been synth
         } catch (NoSynthFoundException e) {
@@ -165,7 +162,7 @@ public class Synth {
         System.exit(0); // Kill remaining threads
       }
       // Check all method has been synthesized
-      synthNeed = successfulSynth.size() != Constantes.getCollectedValues().keySet().size();
+      synthNeed = successfulSynth.size() != allOracles.keySet().size();
     }
     logger.info("Successfully synthesize " + successfulSynth.size() + " methods.");
   }

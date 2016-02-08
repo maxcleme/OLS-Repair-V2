@@ -20,7 +20,6 @@ import org.apache.maven.shared.invoker.MavenInvocationException;
 
 import com.google.common.base.Joiner;
 
-import fil.iagl.opl.Constantes;
 import fil.iagl.opl.synth.ClasspathResolverInvocationOutputHandler;
 import fil.iagl.opl.synth.VerboseOutputHandler;
 import spoon.reflect.declaration.CtClass;
@@ -58,16 +57,16 @@ public class Utils {
    * @return status code
    * @throws MavenInvocationException exception throw by Maven Invoker API
    */
-  public static int runMavenGoal(String pomPath, List<String> goals, InvocationOutputHandler ioh) throws MavenInvocationException {
+  public static int runMavenGoal(String pomPath, List<String> goals, InvocationOutputHandler ioh, Params params) throws MavenInvocationException {
     InvocationRequest request = new DefaultInvocationRequest();
     request.setPomFile(new File(pomPath));
     request.setGoals(goals);
 
     Invoker invoker = new DefaultInvoker();
-    invoker.setMavenHome(new File(Constantes.getMavenHomePath()));
+    invoker.setMavenHome(new File(params.getMavenHomePath()));
 
     if (ioh == null) {
-      ioh = new VerboseOutputHandler(Constantes.getVerbose());
+      ioh = new VerboseOutputHandler(params.getVerbose());
     }
     invoker.setOutputHandler(ioh);
 
@@ -82,9 +81,9 @@ public class Utils {
    * @return classpath
    * @throws MavenInvocationException exception throw by Maven Invoker API
    */
-  public static String getDynamicClasspath(String pomPath) throws MavenInvocationException {
+  public static String getDynamicClasspath(String pomPath, Params params) throws MavenInvocationException {
     ClasspathResolverInvocationOutputHandler ioh = new ClasspathResolverInvocationOutputHandler(false);
-    runMavenGoal(pomPath, Arrays.asList("dependency:build-classpath"), ioh);
+    runMavenGoal(pomPath, Arrays.asList("dependency:build-classpath"), ioh, params);
     return ioh.getClasspath();
   }
 
@@ -96,9 +95,9 @@ public class Utils {
    * @return true if all tests pass, false otherwise
    * @throws MavenInvocationException exception throw by Maven Invoker API
    */
-  public static boolean allTestPass(String pomPath, List<String> tests) throws MavenInvocationException {
+  public static boolean allTestPass(String pomPath, List<String> tests, Params params) throws MavenInvocationException {
     for (String test : tests) {
-      if (runMavenGoal(pomPath, Arrays.asList("-Dtest=" + test, "test"), null) != 0)
+      if (runMavenGoal(pomPath, Arrays.asList("-Dtest=" + test, "test"), null, params) != 0)
         return false;
     }
     return true;
@@ -136,5 +135,14 @@ public class Utils {
       throw new RuntimeException("Exception occured during deleting folder.", e);
     }
 
+  }
+
+  /**
+   * Delete folder if exists
+   * 
+   * @param dir Directory concerned
+   */
+  public static void deleteIfExist(String dirPath) {
+    deleteIfExist(new File(dirPath));
   }
 }
